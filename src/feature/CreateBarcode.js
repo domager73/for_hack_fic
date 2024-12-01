@@ -1,127 +1,198 @@
 import React, {useState, useRef, useEffect} from "react";
 import JsBarcode from "jsbarcode";
+import {useLocation} from "react-router-dom";
+import {DownloadOutlined} from "@ant-design/icons";
+import {Button} from "antd";
 
-const AddMiniImage = () => {
+const CreateBarcode = () => {
+    const location = useLocation();
+    const {product} = location.state || {};
+    console.log(product);
+
     const [fields, setFields] = useState([
         {x: 50, y: 400, width: 200, height: 50, text: ""},
     ]);
-    const [miniImage, setMiniImage] = useState(null); // Мини-картинка
-    const [miniImagePosition, setMiniImagePosition] = useState({x: 100, y: 100});
-    const [barcode, setBarcode] = useState("123456789012"); // Значение штрихкода
-    const [barcodeWidth, setBarcodeWidth] = useState(2); // Ширина штрихкода
-    const [barcodeHeight, setBarcodeHeight] = useState(100); // Высота штрихкода
-    const [backgroundImage, setBackgroundImage] = useState('./assets/default_image.jpg'); // Фоновое изображение
+    const [backgroundImage, setBackgroundImage] = useState('./assets/default_image.jpg');
     const canvasRef = useRef(null);
-    const barcodeCanvasRef = useRef(null); // Для скрытого canvas для штрихкода
+    const barcode13CanvasRef = useRef(null);
+    const barcode128CanvasRef = useRef(null);
 
-    const handleTextChange = (index, newText) => {
-        const updatedFields = fields.map((field, i) =>
-            i === index ? {...field, text: newText} : field
-        );
-        setFields(updatedFields);
-    };
-
-    const handleMiniImageUpload = (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                setMiniImage(e.target.result); // Сохраняем изображение как Data URL
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    // Функция для рисования штрихкода на скрытом canvas
-    const drawBarcode = () => {
-        const barcodeCanvas = barcodeCanvasRef.current;
+    const drawBarcode13 = () => {
+        const barcodeCanvas = barcode13CanvasRef.current;
         const context = barcodeCanvas.getContext("2d");
-        context.clearRect(0, 0, barcodeCanvas.width, barcodeCanvas.height); // Очищаем холст перед рисованием
+        context.clearRect(0, 0, barcodeCanvas.width, barcodeCanvas.height);
 
-        JsBarcode(barcodeCanvas, barcode, {
-            format: "UPC",
-            width: barcodeWidth, // Ширина штрихкода
-            height: barcodeHeight, // Высота штрихкода
+        JsBarcode(barcodeCanvas, '2990312312312', {
+            format: "EAN13",
+            width: 4,
+            height: 160,
             textMargin: 0,
-            fontOptions: "bold",
+            fontSize: 35
         });
     };
 
-    // Рисуем основной канвас
-    const handleCanvasDraw = () => {
-        const canvas = canvasRef.current;
-        const context = canvas.getContext("2d");
-        context.clearRect(0, 0, canvas.width, canvas.height); // Очищаем холст перед рисованием
+    const drawBarcode128 = () => {
+        const barcodeCanvas = barcode128CanvasRef.current;
+        const context = barcodeCanvas.getContext("2d");
+        context.clearRect(0, 0, barcodeCanvas.width, barcodeCanvas.height);
 
-        const backimg = new Image();
-        backimg.src = backgroundImage;
-        backimg.onload = () => {
-            context.drawImage(backimg, 0, 0, canvas.width, canvas.height); // Рисуем фон
-        };
+        JsBarcode(barcodeCanvas, product['barcodeEan128'], {
+            format: "CODE128",
+            width: 4,
+            height: 90,
+            displayValue: false,
+        });
 
-        const barcodeCanvas = barcodeCanvasRef.current;
-        const barcodeImage = barcodeCanvas.toDataURL(); // Получаем изображение штрихкода
-
-        const img = new Image();
-        img.src = barcodeImage;
-        img.onload = () => {
-            context.drawImage(img, 20, 400); // Рисуем штрихкод на основном канвасе
-        };
-
-        drawFieldsAndMiniImage(context); // Рисуем текстовые поля и мини-картинку
+        context.restore();
     };
 
-    // Функция для рисования текста и мини-картинки
+    const loadImage = (src) => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.src = src;
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+        });
+    };
+
+    const handleCanvasDraw = async () => {
+        const canvas = canvasRef.current;
+        const context = canvas.getContext("2d");
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        try {
+            const backimg = await loadImage(backgroundImage);
+            context.drawImage(backimg, 0, 0, canvas.width, canvas.height);
+
+            const barcode13Canvas = barcode13CanvasRef.current;
+            const barcode13Image = barcode13Canvas.toDataURL();
+
+            const barcode128Canvas = barcode128CanvasRef.current;
+            const barcode128Image = barcode128Canvas.toDataURL();
+
+            const img13 = new Image();
+            const img128 = new Image();
+            img13.src = barcode13Image;
+            img128.src = barcode128Image;
+            img128.onload = () => {
+                const img128Width = 100;
+                const img128Height = 180;
+
+                context.save();
+
+                context.translate(390 + img128Width / 2, 10 + img128Height / 2);
+
+                context.rotate(Math.PI / 2);
+
+                context.drawImage(
+                    img128,
+                    -img128Width / 2,
+                    -img128Height / 2
+                );
+
+                context.restore();
+                context.drawImage(img13, 30, 1060);
+                drawFieldsAndMiniImage(context);
+
+                drawConstantText(context, product['supplyNumber'], 30, 65, 20, 'black', 'Arial Narrow', 400);
+                drawConstantText(context, 'LL6LL6', 160, 110, 30, 'black', 'Arial Narrow', 300);
+                drawConstantText(context, product['nameRu'], 30, 150, 25, 'black', 'Arial Bold', 400);
+                drawConstantText(context, product['retailPrice'], 30, 420, 100, 'black', 'Arial Narrow', 300);
+                drawConstantText(context, 'Состав: ' + product['compositionRu'] +
+                    ' Изготовленно: ' + product['manufactureDate']
+                    + '    Изготовитель: ' + product['producerAddress']
+                    ,
+                    30, 500, 25, 'black', 'Arial Narrow', 400);
+                drawConstantText(context, 'Производитель: ' + product['producerName'], 30, 855, 30, 'black', 'Arial Narrow', 400);
+                drawConstantText(context, product['domesticSize'], 50, 1038, 30, 'white', 'Arial Narrow Bold', 300);
+                drawConstantText(context, product['manufacturerSize'], 200, 1038, 30, 'black', 'Arial Narrow Bold', 300);
+            };
+        } catch (error) {
+            console.error("Error loading images:", error);
+        }
+    };
+
+    const drawConstantText = (context, text, x, y, textSize, color, style, maxWidth) => {
+        context.font = `${textSize}px ${style}`;
+        context.fillStyle = color;
+
+        if (maxWidth && text.toString().split(' ').length > 1) {
+            const words = text.split(' ');
+            let line = '';
+            let lineHeight = textSize * 1.5;
+
+            for (let i = 0; i < words.length; i++) {
+                const testLine = line + words[i] + ' ';
+                const testWidth = context.measureText(testLine).width;
+
+                if (testWidth > maxWidth) {
+                    if (line === '') {
+                        context.fillText(words[i].slice(0, words[i].length - 1) + '...', x, y);
+                        break;
+                    } else {
+                        context.fillText(line, x, y);
+                        line = words[i] + ' ';
+                        y += lineHeight;
+                    }
+                } else {
+                    line = testLine;
+                }
+            }
+
+            if (line) {
+                context.fillText(line, x, y);
+            }
+        } else {
+            context.fillText(text, x, y);
+        }
+    };
+
+
     const drawFieldsAndMiniImage = (context) => {
-        // Добавляем текстовые поля
         fields.forEach((field) => {
             context.fillStyle = "black";
             context.font = "16px Arial";
-            context.fillText(field.text, field.x, field.y + 20); // Текстовое поле
+            context.fillText(field.text, field.x, field.y + 20);
         });
-
-        // Рисуем мини-картинку
-        if (miniImage) {
-            const img = new Image();
-            img.src = miniImage;
-            img.onload = () => {
-                context.drawImage(img, miniImagePosition.x, miniImagePosition.y, 100, 100);
-            };
-        }
     };
 
-    // Функция для скачивания изображения
     const handleDownload = () => {
         const canvas = canvasRef.current;
-        const imageUrl = canvas.toDataURL(); // Получаем изображение с канваса в формате Data URL
+        const imageUrl = canvas.toDataURL();
 
-        // Создаем ссылку для скачивания
         const link = document.createElement("a");
         link.href = imageUrl;
-        link.download = "custom_image.png"; // Имя файла для скачивания
-        link.click(); // Программный клик по ссылке для скачивания
+        link.download = "custom_image.png";
+        link.click();
     };
 
     useEffect(() => {
-        // Загрузить изображение фона (default_image.jpg)
-        const defaultImage = "./assets/default_image.jpg"; // Укажите правильный путь к изображению фона
-        setBackgroundImage(defaultImage);
-
-        drawBarcode();
+        drawBarcode13();
+        drawBarcode128();
         handleCanvasDraw();
-    }, [barcode, fields, miniImage, miniImagePosition, barcodeWidth, barcodeHeight]);
+    }, [fields]);
 
     return (
-        <div>
-            <button onClick={handleDownload}>Скачать изображение</button>
-
-            <div style={{margin: "10px 0"}}>
-                <label>
-                    Загрузить мини-картинку:
-                    <input type="file" accept="image/*" onChange={handleMiniImageUpload}/>
-                </label>
-            </div>
-
+        <div
+            style={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                alignItems: "center",
+            }}
+        >
+            <Button
+                type="primary"
+                icon={<DownloadOutlined/>}
+                size="large"
+                style={{
+                    marginBottom: "20px",
+                    borderRadius: "8px",
+                }}
+                onClick={handleDownload}
+            >
+                Скачать изображение
+            </Button>
             <div
                 style={{
                     display: "flex",
@@ -132,8 +203,8 @@ const AddMiniImage = () => {
             >
                 <canvas
                     ref={canvasRef}
-                    width={290}
-                    height={680}
+                    width={542}
+                    height={1280}
                     style={{
                         backgroundColor: "white",
                         border: "1px solid black",
@@ -141,87 +212,17 @@ const AddMiniImage = () => {
                 ></canvas>
             </div>
 
-
-            {/* Скрытый канвас для штрихкода */}
             <canvas
-                ref={barcodeCanvasRef}
-                width={230}
-                height={150}
+                ref={barcode13CanvasRef}
                 style={{display: "none"}}
             ></canvas>
 
-            {/* Панель ввода текста */}
-            <div style={{display: "flex", flexDirection: "column", gap: "10px"}}>
-                {fields.map((field, index) => (
-                    <div key={index}>
-                        <label>
-                            Поле {index + 1}:
-                            <input
-                                type="text"
-                                value={field.text}
-                                onChange={(e) => handleTextChange(index, e.target.value)}
-                                style={{
-                                    marginLeft: "10px",
-                                    padding: "5px",
-                                    width: "300px",
-                                }}
-                            />
-                        </label>
-                    </div>
-                ))}
-            </div>
-
-            {/* Панель управления мини-картинкой */}
-            {miniImage && (
-                <div style={{marginTop: "20px"}}>
-                    <label>
-                        Позиция мини-картинки по X:
-                        <input
-                            type="number"
-                            value={miniImagePosition.x}
-                            onChange={(e) =>
-                                setMiniImagePosition({...miniImagePosition, x: parseInt(e.target.value, 10)})
-                            }
-                            style={{marginLeft: "10px", width: "80px"}}
-                        />
-                    </label>
-                    <label style={{marginLeft: "20px"}}>
-                        Позиция мини-картинки по Y:
-                        <input
-                            type="number"
-                            value={miniImagePosition.y}
-                            onChange={(e) =>
-                                setMiniImagePosition({...miniImagePosition, y: parseInt(e.target.value, 10)})
-                            }
-                            style={{marginLeft: "10px", width: "80px"}}
-                        />
-                    </label>
-                </div>
-            )}
-
-            {/* Панель управления штрихкодом */}
-            <div style={{marginTop: "20px"}}>
-                <label>
-                    Ширина штрихкода:
-                    <input
-                        type="number"
-                        value={barcodeWidth}
-                        onChange={(e) => setBarcodeWidth(parseFloat(e.target.value))}
-                        style={{marginLeft: "10px", width: "80px"}}
-                    />
-                </label>
-                <label style={{marginLeft: "20px"}}>
-                    Высота штрихкода:
-                    <input
-                        type="number"
-                        value={barcodeHeight}
-                        onChange={(e) => setBarcodeHeight(parseInt(e.target.value, 10))}
-                        style={{marginLeft: "10px", width: "80px"}}
-                    />
-                </label>
-            </div>
+            <canvas
+                ref={barcode128CanvasRef}
+                style={{display: "none"}}
+            ></canvas>
         </div>
     );
 };
 
-export default AddMiniImage;
+export default CreateBarcode;
