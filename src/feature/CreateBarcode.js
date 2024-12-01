@@ -3,6 +3,7 @@ import JsBarcode from "jsbarcode";
 import {useLocation} from "react-router-dom";
 import {DownloadOutlined} from "@ant-design/icons";
 import {Button} from "antd";
+import jsPDF from "jspdf";
 
 const CreateBarcode = () => {
     const location = useLocation();
@@ -164,6 +165,15 @@ const CreateBarcode = () => {
         link.href = imageUrl;
         link.download = "custom_image.png";
         link.click();
+
+        const canvas_for_pdf = canvasRef.current;
+        const imageUrl_for_pdf = canvas_for_pdf.toDataURL();
+
+        const pdf = jsPDF();
+
+        pdf.addImage(imageUrl_for_pdf, 'PNG', 0, 0, 210, 297);
+
+        pdf.save("custom_image.pdf");
     };
 
     useEffect(() => {
