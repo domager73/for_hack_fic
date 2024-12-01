@@ -1,7 +1,7 @@
 import axios from "axios";
 
 class ApiService {
-    static BASE_URL = "http://localhost:5031/product/";
+    static BASE_URL = "http://localhost/api/product/";
 
     static async getAllProducts() {
         try {
